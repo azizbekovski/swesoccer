@@ -1,333 +1,163 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini Haxball</title>
-
-<style>
-body{
-    margin:0;
-    background:#222;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-}
-
-canvas{
-    background:#557a46;
-    border:2px solid white;
-}
-</style>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HaxBall Mini - Musstyrning</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            cursor: crosshair; /* Ändrar muspekaren över skärmen */
+        }
+        canvas {
+            background-color: #557a46; /* Grön rektangel-plan */
+            border: 4px solid #fff;
+        }
+    </style>
 </head>
 <body>
 
-<canvas id="gameCanvas" width="600" height="300"></canvas>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
 
 <script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+const friction = 0.98;
 
-const W = canvas.width;
-const H = canvas.height;
-
-const keys = {};
-
-window.addEventListener("keydown",e=>{
-    keys[e.key]=true;
-});
-
-window.addEventListener("keyup",e=>{
-    keys[e.key]=false;
-});
-
+// Blå spelare (startar i mitten)
 const player = {
-    x:120,
-    y:H/2,
-    r:8,
-    vx:0,
-    vy:0,
-    accel:0.20,
-    maxSpeed:3,
-    color:"blue"
+    x: 400,
+    y: 200,
+    radius: 15,
+    color: '#00ccff'
 };
 
+// Vit boll
 const ball = {
-    x:W/2,
-    y:H/2,
-    r:5,
-    vx:0,
-    vy:0
+    x: 600,
+    y: 200,
+    vx: 0,
+    vy: 0,
+    radius: 10,
+    color: '#ffffff'
 };
 
-const playerFriction = 0.93;
-const ballFriction = 0.99;
+// Musens position på canvasen
+const mouse = { x: 400, y: 200 };
 
-const kickRange = 25;
-const kickPower = 6;
-const kickCooldown = 250;
+// Lyssna på musrörelser
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+});
 
-let lastKick = 0;
-
-const goalWidth = 8;
-const goalHeight = 60;
-
-let leftScore = 0;
-let rightScore = 0;
-
-function resetPositions(){
-
-    player.x = 120;
-    player.y = H/2;
-    player.vx = 0;
-    player.vy = 0;
-
-    ball.x = W/2;
-    ball.y = H/2;
-    ball.vx = 0;
-    ball.vy = 0;
-}
-
-function updatePlayer(){
-
-    let dx = 0;
-    let dy = 0;
-
-    if(keys["w"]) dy--;
-    if(keys["s"]) dy++;
-    if(keys["a"]) dx--;
-    if(keys["d"]) dx++;
-
-    if(dx || dy){
-
-        const len = Math.hypot(dx,dy);
-
-        player.vx += (dx/len) * player.accel;
-        player.vy += (dy/len) * player.accel;
+// Kicka med vänsterklick på musen
+canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 0) { // Vänsterklick
+        kickBall();
     }
+});
 
-    const speed = Math.hypot(player.vx,player.vy);
-
-    if(speed > player.maxSpeed){
-
-        player.vx = player.vx/speed * player.maxSpeed;
-        player.vy = player.vy/speed * player.maxSpeed;
+// Kicka med Shift-tangenten (om man föredrar det)
+window.addEventListener('keydown', (e) => {
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+        kickBall();
     }
+});
 
-    player.vx *= playerFriction;
-    player.vy *= playerFriction;
+function kickBall() {
+    const dx = ball.x - player.x;
+    const dy = ball.y - player.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const kickRange = player.radius + ball.radius + 15;
 
-    player.x += player.vx;
-    player.y += player.vy;
-
-    player.x = Math.max(player.r,Math.min(W-player.r,player.x));
-    player.y = Math.max(player.r,Math.min(H-player.r,player.y));
-}
-
-function playerBallCollision(){
-
-    const dx = ball.x-player.x;
-    const dy = ball.y-player.y;
-
-    const dist = Math.hypot(dx,dy);
-
-    const minDist = player.r + ball.r;
-
-    if(dist < minDist && dist > 0){
-
-        const nx = dx/dist;
-        const ny = dy/dist;
-
-        const overlap = minDist-dist;
-
-        ball.x += nx*overlap;
-        ball.y += ny*overlap;
-
-        ball.vx += player.vx*0.8;
-        ball.vy += player.vy*0.8;
+    if (dist < kickRange && dist > 0) {
+        const nx = dx / dist;
+        const ny = dy / dist;
+        // Kraftfull kick
+        ball.vx = nx * 15;
+        ball.vy = ny * 15;
     }
 }
 
-function handleKick(){
+function update() {
+    // Spelaren följer musens position direkt
+    player.x = mouse.x;
+    player.y = mouse.y;
 
-    const dx = ball.x-player.x;
-    const dy = ball.y-player.y;
+    // Håll spelaren strikt inom planen (väggkollision)
+    if (player.x - player.radius < 0) player.x = player.radius;
+    if (player.x + player.radius > canvas.width) player.x = canvas.width - player.radius;
+    if (player.y - player.radius < 0) player.y = player.radius;
+    if (player.y + player.radius > canvas.height) player.y = canvas.height - player.radius;
 
-    const dist = Math.hypot(dx,dy);
-
-    const now = performance.now();
-
-    if(
-        keys["Shift"] &&
-        dist < kickRange &&
-        now-lastKick > kickCooldown
-    ){
-
-        ball.vx += (dx/dist)*kickPower;
-        ball.vy += (dy/dist)*kickPower;
-
-        lastKick = now;
-    }
-}
-
-function updateBall(){
-
+    // Bollrörelse och friktion
+    ball.vx *= friction;
+    ball.vy *= friction;
     ball.x += ball.vx;
     ball.y += ball.vy;
 
-    ball.vx *= ballFriction;
-    ball.vy *= ballFriction;
+    // Perfekt väggkollision med elastisk studs för bollen
+    if (ball.x - ball.radius < 0) { ball.x = ball.radius; ball.vx = -ball.vx * 0.8; }
+    if (ball.x + ball.radius > canvas.width) { ball.x = canvas.width - ball.radius; ball.vx = -ball.vx * 0.8; }
+    if (ball.y - ball.radius < 0) { ball.y = ball.radius; ball.vy = -ball.vy * 0.8; }
+    if (ball.y + ball.radius > canvas.height) { ball.y = canvas.height - ball.radius; ball.vy = -ball.vy * 0.8; }
 
-    if(ball.y-ball.r < 0){
+    // Fysisk kollision när spelaren rör vid bollen (knuffa bollen)
+    const dx = ball.x - player.x;
+    const dy = ball.y - player.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const minDist = ball.radius + player.radius;
 
-        ball.y = ball.r;
-        ball.vy *= -0.85;
-    }
+    if (dist < minDist && dist > 0) {
+        const overlap = minDist - dist;
+        const nx = dx / dist;
+        const ny = dy / dist;
 
-    if(ball.y+ball.r > H){
+        // Skjut ut bollen så den inte överlappar med spelarens cirkel
+        ball.x += nx * overlap;
+        ball.y += ny * overlap;
 
-        ball.y = H-ball.r;
-        ball.vy *= -0.85;
-    }
-
-    const goalTop = H/2-goalHeight/2;
-    const goalBottom = H/2+goalHeight/2;
-
-    if(ball.x-ball.r < 0){
-
-        if(ball.y > goalTop && ball.y < goalBottom){
-
-            rightScore++;
-            resetPositions();
-        }
-        else{
-
-            ball.x = ball.r;
-            ball.vx *= -0.85;
-        }
-    }
-
-    if(ball.x+ball.r > W){
-
-        if(ball.y > goalTop && ball.y < goalBottom){
-
-            leftScore++;
-            resetPositions();
-        }
-        else{
-
-            ball.x = W-ball.r;
-            ball.vx *= -0.85;
-        }
+        // Ge bollen en lätt knuff framåt baserat på riktningen
+        ball.vx += nx * 0.8;
+        ball.vy += ny * 0.8;
     }
 }
 
-function drawField(){
+function draw() {
+    // Rensa planen
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle="#557a46";
-    ctx.fillRect(0,0,W,H);
-
-    ctx.strokeStyle="rgba(255,255,255,0.5)";
-    ctx.lineWidth=2;
-
+    // Rita blå spelare
+    ctx.fillStyle = player.color;
     ctx.beginPath();
-    ctx.moveTo(W/2,0);
-    ctx.lineTo(W/2,H);
+    ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
     ctx.stroke();
 
+    // Rita vit boll
+    ctx.fillStyle = ball.color;
     ctx.beginPath();
-    ctx.arc(W/2,H/2,25,0,Math.PI*2);
-    ctx.stroke();
-
-    ctx.fillStyle="#ff4d4d";
-    ctx.fillRect(
-        0,
-        H/2-goalHeight/2,
-        goalWidth,
-        goalHeight
-    );
-
-    ctx.fillStyle="#4da6ff";
-    ctx.fillRect(
-        W-goalWidth,
-        H/2-goalHeight/2,
-        goalWidth,
-        goalHeight
-    );
+    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+    ctx.fill();
 }
 
-function draw(){
-
-    ctx.clearRect(0,0,W,H);
-
-    drawField();
-
-    ctx.beginPath();
-    ctx.arc(
-        ball.x,
-        ball.y,
-        ball.r,
-        0,
-        Math.PI*2
-    );
-    ctx.fillStyle="white";
-    ctx.fill();
-
-    ctx.beginPath();
-    ctx.arc(
-        player.x,
-        player.y,
-        player.r,
-        0,
-        Math.PI*2
-    );
-    ctx.fillStyle="blue";
-    ctx.fill();
-
-    ctx.fillStyle="white";
-    ctx.font="18px Arial";
-
-    ctx.fillText(
-        leftScore+" - "+rightScore,
-        W/2-20,
-        25
-    );
-
-    if(
-        Math.hypot(
-            ball.x-player.x,
-            ball.y-player.y
-        ) < kickRange
-    ){
-        ctx.font="12px Arial";
-        ctx.fillText(
-            "SHIFT = KICK",
-            10,
-            H-10
-        );
-    }
-}
-
-function gameLoop(){
-
-    updatePlayer();
-
-    playerBallCollision();
-
-    handleKick();
-
-    updateBall();
-
+function loop() {
+    update();
     draw();
-
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(loop);
 }
 
-gameLoop();
-
+loop();
 </script>
 
 </body>
