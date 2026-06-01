@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="sv">
 <head>
     <meta charset="UTF-8">
@@ -15,14 +15,17 @@
             color: white;
             font-family: sans-serif;
         }
+        #hud { position: fixed; top: 12px; left: 12px; color: #fff; font-size: 14px; }
         canvas {
             background-color: #557a46; /* Fotbollsplanens färg */
             border: 5px solid #fff;
             border-radius: 5px;
+            display:block;
         }
     </style>
 </head>
 <body>
+    <div id="hud">Rörelse: WASD / pilar • Sikta: mus • Sparka: Shift</div>
     <canvas id="gameCanvas" width="800" height="400"></canvas>
     <script src="app.js"></script>
 </body>
