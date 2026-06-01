@@ -1,112 +1,334 @@
-from pathlib import Path
-
-html = r"""<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="sv">
 <head>
-<meta charset="utf-8">
-<title>Mini Haxball Clean</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Haxball</title>
+
 <style>
-body{margin:0;background:#222;display:flex;justify-content:center;align-items:center;height:100vh}
-canvas{background:#557a46;border:2px solid #fff}
-</style>
-</head>
-<body>
-<canvas id="game" width="800" height="450"></canvas>
-<script>
-const c=document.getElementById("game"),x=c.getContext("2d");
-const W=c.width,H=c.height;
-const k={};
-addEventListener("keydown",e=>k[e.key]=true);
-addEventListener("keyup",e=>k[e.key]=false);
-
-const p={x:150,y:H/2,r:14,vx:0,vy:0};
-const b={x:W/2,y:H/2,r:9,vx:0,vy:0};
-let l=0,r=0,lastKick=0;
-
-function reset(){
- p.x=150;p.y=H/2;p.vx=p.vy=0;
- b.x=W/2;b.y=H/2;b.vx=b.vy=0;
+body{
+    margin:0;
+    background:#222;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
 }
 
-function update(){
- let dx=0,dy=0;
- if(k.w)dy--; if(k.s)dy++;
- if(k.a)dx--; if(k.d)dx++;
- if(dx||dy){
-   let m=Math.hypot(dx,dy);
-   p.vx+=(dx/m)*0.3;
-   p.vy+=(dy/m)*0.3;
- }
- p.vx*=0.92; p.vy*=0.92;
- let sp=Math.hypot(p.vx,p.vy);
- if(sp>4){p.vx=p.vx/sp*4;p.vy=p.vy/sp*4;}
- p.x+=p.vx; p.y+=p.vy;
+canvas{
+    background:#557a46;
+    border:2px solid white;
+}
+</style>
 
- p.x=Math.max(p.r,Math.min(W-p.r,p.x));
- p.y=Math.max(p.r,Math.min(H-p.r,p.y));
+</head>
+<body>
 
- let ddx=b.x-p.x, ddy=b.y-p.y;
- let dist=Math.hypot(ddx,ddy);
- let min=p.r+b.r;
+<canvas id="gameCanvas" width="600" height="300"></canvas>
 
- if(dist<min && dist>0){
-   let nx=ddx/dist, ny=ddy/dist;
-   b.x+=nx*(min-dist);
-   b.y+=ny*(min-dist);
-   b.vx+=p.vx*0.8;
-   b.vy+=p.vy*0.8;
- }
+<script>
 
- if(k.Shift && performance.now()-lastKick>250 && dist<45){
-   let nx=ddx/(dist||1), ny=ddy/(dist||1);
-   b.vx+=nx*8;
-   b.vy+=ny*8;
-   lastKick=performance.now();
- }
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
- b.x+=b.vx; b.y+=b.vy;
- b.vx*=0.99; b.vy*=0.99;
+const W = canvas.width;
+const H = canvas.height;
 
- if(b.y<b.r||b.y>H-b.r) b.vy*=-0.85;
+const keys = {};
 
- const gy1=H/2-60, gy2=H/2+60;
+window.addEventListener("keydown",e=>{
+    keys[e.key]=true;
+});
 
- if(b.x<b.r){
-   if(b.y>gy1&&b.y<gy2){r++;reset();}
-   else {b.x=b.r;b.vx*=-0.85;}
- }
- if(b.x>W-b.r){
-   if(b.y>gy1&&b.y<gy2){l++;reset();}
-   else {b.x=W-b.r;b.vx*=-0.85;}
- }
+window.addEventListener("keyup",e=>{
+    keys[e.key]=false;
+});
+
+const player = {
+    x:120,
+    y:H/2,
+    r:8,
+    vx:0,
+    vy:0,
+    accel:0.20,
+    maxSpeed:3,
+    color:"blue"
+};
+
+const ball = {
+    x:W/2,
+    y:H/2,
+    r:5,
+    vx:0,
+    vy:0
+};
+
+const playerFriction = 0.93;
+const ballFriction = 0.99;
+
+const kickRange = 25;
+const kickPower = 6;
+const kickCooldown = 250;
+
+let lastKick = 0;
+
+const goalWidth = 8;
+const goalHeight = 60;
+
+let leftScore = 0;
+let rightScore = 0;
+
+function resetPositions(){
+
+    player.x = 120;
+    player.y = H/2;
+    player.vx = 0;
+    player.vy = 0;
+
+    ball.x = W/2;
+    ball.y = H/2;
+    ball.vx = 0;
+    ball.vy = 0;
+}
+
+function updatePlayer(){
+
+    let dx = 0;
+    let dy = 0;
+
+    if(keys["w"]) dy--;
+    if(keys["s"]) dy++;
+    if(keys["a"]) dx--;
+    if(keys["d"]) dx++;
+
+    if(dx || dy){
+
+        const len = Math.hypot(dx,dy);
+
+        player.vx += (dx/len) * player.accel;
+        player.vy += (dy/len) * player.accel;
+    }
+
+    const speed = Math.hypot(player.vx,player.vy);
+
+    if(speed > player.maxSpeed){
+
+        player.vx = player.vx/speed * player.maxSpeed;
+        player.vy = player.vy/speed * player.maxSpeed;
+    }
+
+    player.vx *= playerFriction;
+    player.vy *= playerFriction;
+
+    player.x += player.vx;
+    player.y += player.vy;
+
+    player.x = Math.max(player.r,Math.min(W-player.r,player.x));
+    player.y = Math.max(player.r,Math.min(H-player.r,player.y));
+}
+
+function playerBallCollision(){
+
+    const dx = ball.x-player.x;
+    const dy = ball.y-player.y;
+
+    const dist = Math.hypot(dx,dy);
+
+    const minDist = player.r + ball.r;
+
+    if(dist < minDist && dist > 0){
+
+        const nx = dx/dist;
+        const ny = dy/dist;
+
+        const overlap = minDist-dist;
+
+        ball.x += nx*overlap;
+        ball.y += ny*overlap;
+
+        ball.vx += player.vx*0.8;
+        ball.vy += player.vy*0.8;
+    }
+}
+
+function handleKick(){
+
+    const dx = ball.x-player.x;
+    const dy = ball.y-player.y;
+
+    const dist = Math.hypot(dx,dy);
+
+    const now = performance.now();
+
+    if(
+        keys["Shift"] &&
+        dist < kickRange &&
+        now-lastKick > kickCooldown
+    ){
+
+        ball.vx += (dx/dist)*kickPower;
+        ball.vy += (dy/dist)*kickPower;
+
+        lastKick = now;
+    }
+}
+
+function updateBall(){
+
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    ball.vx *= ballFriction;
+    ball.vy *= ballFriction;
+
+    if(ball.y-ball.r < 0){
+
+        ball.y = ball.r;
+        ball.vy *= -0.85;
+    }
+
+    if(ball.y+ball.r > H){
+
+        ball.y = H-ball.r;
+        ball.vy *= -0.85;
+    }
+
+    const goalTop = H/2-goalHeight/2;
+    const goalBottom = H/2+goalHeight/2;
+
+    if(ball.x-ball.r < 0){
+
+        if(ball.y > goalTop && ball.y < goalBottom){
+
+            rightScore++;
+            resetPositions();
+        }
+        else{
+
+            ball.x = ball.r;
+            ball.vx *= -0.85;
+        }
+    }
+
+    if(ball.x+ball.r > W){
+
+        if(ball.y > goalTop && ball.y < goalBottom){
+
+            leftScore++;
+            resetPositions();
+        }
+        else{
+
+            ball.x = W-ball.r;
+            ball.vx *= -0.85;
+        }
+    }
+}
+
+function drawField(){
+
+    ctx.fillStyle="#557a46";
+    ctx.fillRect(0,0,W,H);
+
+    ctx.strokeStyle="rgba(255,255,255,0.5)";
+    ctx.lineWidth=2;
+
+    ctx.beginPath();
+    ctx.moveTo(W/2,0);
+    ctx.lineTo(W/2,H);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(W/2,H/2,25,0,Math.PI*2);
+    ctx.stroke();
+
+    ctx.fillStyle="#ff4d4d";
+    ctx.fillRect(
+        0,
+        H/2-goalHeight/2,
+        goalWidth,
+        goalHeight
+    );
+
+    ctx.fillStyle="#4da6ff";
+    ctx.fillRect(
+        W-goalWidth,
+        H/2-goalHeight/2,
+        goalWidth,
+        goalHeight
+    );
 }
 
 function draw(){
- x.clearRect(0,0,W,H);
 
- x.strokeStyle="#fff";
- x.beginPath();x.moveTo(W/2,0);x.lineTo(W/2,H);x.stroke();
- x.beginPath();x.arc(W/2,H/2,45,0,Math.PI*2);x.stroke();
+    ctx.clearRect(0,0,W,H);
 
- x.fillStyle="red";x.fillRect(0,H/2-60,12,120);
- x.fillStyle="dodgerblue";x.fillRect(W-12,H/2-60,12,120);
+    drawField();
 
- x.fillStyle="white";
- x.beginPath();x.arc(b.x,b.y,b.r,0,Math.PI*2);x.fill();
+    ctx.beginPath();
+    ctx.arc(
+        ball.x,
+        ball.y,
+        ball.r,
+        0,
+        Math.PI*2
+    );
+    ctx.fillStyle="white";
+    ctx.fill();
 
- x.fillStyle="blue";
- x.beginPath();x.arc(p.x,p.y,p.r,0,Math.PI*2);x.fill();
+    ctx.beginPath();
+    ctx.arc(
+        player.x,
+        player.y,
+        player.r,
+        0,
+        Math.PI*2
+    );
+    ctx.fillStyle="blue";
+    ctx.fill();
 
- x.fillStyle="white";
- x.font="26px Arial";
- x.fillText(l+" - "+r,W/2-25,35);
+    ctx.fillStyle="white";
+    ctx.font="18px Arial";
+
+    ctx.fillText(
+        leftScore+" - "+rightScore,
+        W/2-20,
+        25
+    );
+
+    if(
+        Math.hypot(
+            ball.x-player.x,
+            ball.y-player.y
+        ) < kickRange
+    ){
+        ctx.font="12px Arial";
+        ctx.fillText(
+            "SHIFT = KICK",
+            10,
+            H-10
+        );
+    }
 }
 
-(function loop(){update();draw();requestAnimationFrame(loop)})();
-</script>
-</body></html>
-"""
+function gameLoop(){
 
-path="/mnt/data/mini_haxball_clean.html"
-Path(path).write_text(html, encoding="utf-8")
-print(path)
+    updatePlayer();
+
+    playerBallCollision();
+
+    handleKick();
+
+    updateBall();
+
+    draw();
+
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
+
+</script>
+
+</body>
+</html>
