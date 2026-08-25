@@ -1,29 +1,1274 @@
 <!DOCTYPE html>
 <html lang="sv">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Min HaxBall Klon</title>
-    <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #222;
-            margin: 0;
-            color: white;
-            font-family: sans-serif;
-        }
-        canvas {
-            background-color: #557a46; /* Fotbollsplanens färg */
-            border: 5px solid #fff;
-            border-radius: 5px;
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>HaxBall Klon</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    height: 100vh;
+    background: #222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: Arial, sans-serif;
+    color: white;
+    overflow: hidden;
+}
+
+#game {
+    text-align: center;
+}
+
+canvas {
+    display: block;
+    width: 800px;
+    height: 400px;
+    max-width: 95vw;
+    max-height: 80vh;
+    background: #557a46;
+    border: 5px solid white;
+    border-radius: 6px;
+}
+
+.info {
+    margin-top: 10px;
+    font-size: 14px;
+    color: #ddd;
+}
+</style>
 </head>
+
 <body>
+
+<div id="game">
+
     <canvas id="gameCanvas" width="800" height="400"></canvas>
-    <script src="app.js"></script>
+
+    <div class="info">
+        🔵 WASD + SPACE &nbsp;&nbsp; | &nbsp;&nbsp;
+        🔴 Piltangenter + SPACE
+    </div>
+
+</div>
+
+<script>
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const W = canvas.width;
+const H = canvas.height;
+
+const keys = Object.create(null);
+
+
+// ============================================
+// TANGENTER
+// ============================================
+
+window.addEventListener("keydown", function(e) {
+
+    const key = e.key.toLowerCase();
+
+    keys[key] = true;
+
+    if (
+        key === " " ||
+        key === "arrowup" ||
+        key === "arrowdown" ||
+        key === "arrowleft" ||
+        key === "arrowright"
+    ) {
+        e.preventDefault();
+    }
+
+});
+
+
+window.addEventListener("keyup", function(e) {
+
+    keys[e.key.toLowerCase()] = false;
+
+});
+
+
+// ============================================
+// SPELARE 1
+// ============================================
+
+const player1 = {
+
+    x: 200,
+    y: H / 2,
+
+    vx: 0,
+    vy: 0,
+
+    radius: 18,
+
+    speed: 0.65,
+    maxSpeed: 5.5,
+
+    color: "#2196f3",
+
+    up: "w",
+    down: "s",
+    left: "a",
+    right: "d",
+
+    shoot: " ",
+
+    lastDirX: 1,
+    lastDirY: 0
+
+};
+
+
+// ============================================
+// SPELARE 2
+// ============================================
+
+const player2 = {
+
+    x: W - 200,
+    y: H / 2,
+
+    vx: 0,
+    vy: 0,
+
+    radius: 18,
+
+    speed: 0.65,
+    maxSpeed: 5.5,
+
+    color: "#f44336",
+
+    up: "arrowup",
+    down: "arrowdown",
+    left: "arrowleft",
+    right: "arrowright",
+
+    shoot: " ",
+
+    lastDirX: -1,
+    lastDirY: 0
+
+};
+
+
+// ============================================
+// BOLL
+// ============================================
+
+const ball = {
+
+    x: W / 2,
+    y: H / 2,
+
+    vx: 0,
+    vy: 0,
+
+    radius: 11,
+
+    friction: 0.992,
+
+    maxSpeed: 14
+
+};
+
+
+// ============================================
+// MÅL
+// ============================================
+
+const goalHeight = 150;
+
+const goalTop =
+    (H - goalHeight) / 2;
+
+const goalBottom =
+    goalTop + goalHeight;
+
+
+let score1 = 0;
+let score2 = 0;
+
+let message = "";
+let messageTimer = 0;
+
+
+// ============================================
+// CLAMP
+// ============================================
+
+function clamp(value, min, max) {
+
+    return Math.max(
+        min,
+        Math.min(max, value)
+    );
+
+}
+
+
+// ============================================
+// UPPDATERA SPELARE
+// ============================================
+
+function updatePlayer(p) {
+
+    let ax = 0;
+    let ay = 0;
+
+
+    if (keys[p.left]) {
+        ax -= p.speed;
+    }
+
+    if (keys[p.right]) {
+        ax += p.speed;
+    }
+
+    if (keys[p.up]) {
+        ay -= p.speed;
+    }
+
+    if (keys[p.down]) {
+        ay += p.speed;
+    }
+
+
+    // Diagonal rörelse
+    if (ax !== 0 && ay !== 0) {
+
+        ax *= 0.7071;
+        ay *= 0.7071;
+
+    }
+
+
+    p.vx += ax;
+    p.vy += ay;
+
+
+    // Friktion
+    p.vx *= 0.86;
+    p.vy *= 0.86;
+
+
+    // Maxhastighet
+    const speed =
+        Math.hypot(
+            p.vx,
+            p.vy
+        );
+
+
+    if (speed > p.maxSpeed) {
+
+        p.vx =
+            (p.vx / speed) *
+            p.maxSpeed;
+
+        p.vy =
+            (p.vy / speed) *
+            p.maxSpeed;
+
+    }
+
+
+    p.x += p.vx;
+    p.y += p.vy;
+
+
+    // Väggar
+    p.x = clamp(
+        p.x,
+        p.radius,
+        W - p.radius
+    );
+
+    p.y = clamp(
+        p.y,
+        p.radius,
+        H - p.radius
+    );
+
+
+    // Spara senaste riktning
+    if (
+        Math.abs(p.vx) > 0.2 ||
+        Math.abs(p.vy) > 0.2
+    ) {
+
+        const length =
+            Math.hypot(
+                p.vx,
+                p.vy
+            );
+
+        p.lastDirX =
+            p.vx / length;
+
+        p.lastDirY =
+            p.vy / length;
+
+    }
+
+
+    // SPACE = SKJUT
+    // INGEN COOLDOWN
+    if (keys[p.shoot]) {
+
+        shoot(p);
+
+    }
+
+}
+
+
+// ============================================
+// SKJUTA
+// ============================================
+
+function shoot(p) {
+
+    const dx =
+        ball.x - p.x;
+
+    const dy =
+        ball.y - p.y;
+
+    const distance =
+        Math.hypot(dx, dy);
+
+
+    // Bollen måste vara nära
+    if (distance > 65) {
+        return;
+    }
+
+
+    let dirX =
+        p.lastDirX;
+
+    let dirY =
+        p.lastDirY;
+
+
+    // Sikta mot bollen
+    if (distance > 0) {
+
+        dirX =
+            dx / distance;
+
+        dirY =
+            dy / distance;
+
+    }
+
+
+    // Flytta bollen framför spelaren
+    ball.x =
+        p.x +
+        dirX *
+        (p.radius + ball.radius + 2);
+
+    ball.y =
+        p.y +
+        dirY *
+        (p.radius + ball.radius + 2);
+
+
+    // SKOTTKRAFT
+    ball.vx =
+        dirX * 12 +
+        p.vx * 0.5;
+
+    ball.vy =
+        dirY * 12 +
+        p.vy * 0.5;
+
+
+    limitBallSpeed();
+
+}
+
+
+// ============================================
+// SPELARE MOT SPELARE
+// ============================================
+
+function resolvePlayerCollision(a, b) {
+
+    const dx =
+        b.x - a.x;
+
+    const dy =
+        b.y - a.y;
+
+    const distance =
+        Math.hypot(dx, dy);
+
+    const minDistance =
+        a.radius +
+        b.radius;
+
+
+    if (
+        distance === 0 ||
+        distance >= minDistance
+    ) {
+        return;
+    }
+
+
+    const nx =
+        dx / distance;
+
+    const ny =
+        dy / distance;
+
+
+    const overlap =
+        minDistance - distance;
+
+
+    a.x -=
+        nx * overlap / 2;
+
+    a.y -=
+        ny * overlap / 2;
+
+
+    b.x +=
+        nx * overlap / 2;
+
+    b.y +=
+        ny * overlap / 2;
+
+
+    // Enkel studs
+    const relativeVelocity =
+        (b.vx - a.vx) * nx +
+        (b.vy - a.vy) * ny;
+
+
+    if (relativeVelocity < 0) {
+
+        const impulse =
+            relativeVelocity * 0.7;
+
+
+        a.vx +=
+            nx * impulse;
+
+        a.vy +=
+            ny * impulse;
+
+
+        b.vx -=
+            nx * impulse;
+
+        b.vy -=
+            ny * impulse;
+
+    }
+
+}
+
+
+// ============================================
+// BOLL MOT SPELARE
+// ============================================
+
+function collideBallWithPlayer(p) {
+
+    const dx =
+        ball.x - p.x;
+
+    const dy =
+        ball.y - p.y;
+
+
+    const distance =
+        Math.hypot(dx, dy);
+
+
+    const minDistance =
+        ball.radius +
+        p.radius;
+
+
+    if (
+        distance >= minDistance ||
+        distance === 0
+    ) {
+        return;
+    }
+
+
+    const nx =
+        dx / distance;
+
+    const ny =
+        dy / distance;
+
+
+    const overlap =
+        minDistance - distance;
+
+
+    // Flytta bollen ut
+    ball.x +=
+        nx * overlap;
+
+    ball.y +=
+        ny * overlap;
+
+
+    // Relativ hastighet
+    let rvx =
+        ball.vx - p.vx;
+
+    let rvy =
+        ball.vy - p.vy;
+
+
+    const velocity =
+        rvx * nx +
+        rvy * ny;
+
+
+    if (velocity < 0) {
+
+        rvx -=
+            velocity *
+            nx *
+            1.6;
+
+        rvy -=
+            velocity *
+            ny *
+            1.6;
+
+    }
+
+
+    ball.vx =
+        rvx + p.vx;
+
+    ball.vy =
+        rvy + p.vy;
+
+
+    // Extra kraft från spelaren
+    const playerSpeed =
+        Math.hypot(
+            p.vx,
+            p.vy
+        );
+
+
+    if (playerSpeed > 1) {
+
+        ball.vx +=
+            nx *
+            playerSpeed *
+            0.65;
+
+        ball.vy +=
+            ny *
+            playerSpeed *
+            0.65;
+
+    }
+
+
+    limitBallSpeed();
+
+}
+
+
+// ============================================
+// BOLL
+// ============================================
+
+function updateBall() {
+
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+
+    // Friktion
+    ball.vx *= ball.friction;
+    ball.vy *= ball.friction;
+
+
+    // ÖVRE VÄGG
+    if (
+        ball.y -
+        ball.radius <= 0
+    ) {
+
+        ball.y =
+            ball.radius;
+
+        ball.vy =
+            Math.abs(ball.vy) *
+            0.9;
+
+    }
+
+
+    // NEDRE VÄGG
+    if (
+        ball.y +
+        ball.radius >= H
+    ) {
+
+        ball.y =
+            H - ball.radius;
+
+        ball.vy =
+            -Math.abs(ball.vy) *
+            0.9;
+
+    }
+
+
+    // VÄNSTER VÄGG
+    if (
+        ball.x -
+        ball.radius <= 0
+    ) {
+
+        if (
+            ball.y < goalTop ||
+            ball.y > goalBottom
+        ) {
+
+            ball.x =
+                ball.radius;
+
+            ball.vx =
+                Math.abs(ball.vx) *
+                0.9;
+
+        }
+
+    }
+
+
+    // HÖGER VÄGG
+    if (
+        ball.x +
+        ball.radius >= W
+    ) {
+
+        if (
+            ball.y < goalTop ||
+            ball.y > goalBottom
+        ) {
+
+            ball.x =
+                W - ball.radius;
+
+            ball.vx =
+                -Math.abs(ball.vx) *
+                0.9;
+
+        }
+
+    }
+
+
+    limitBallSpeed();
+
+}
+
+
+// ============================================
+// MAX BOLLHASTIGHET
+// ============================================
+
+function limitBallSpeed() {
+
+    const speed =
+        Math.hypot(
+            ball.vx,
+            ball.vy
+        );
+
+
+    if (
+        speed >
+        ball.maxSpeed
+    ) {
+
+        ball.vx =
+            (ball.vx / speed) *
+            ball.maxSpeed;
+
+        ball.vy =
+            (ball.vy / speed) *
+            ball.maxSpeed;
+
+    }
+
+}
+
+
+// ============================================
+// MÅL
+// ============================================
+
+function checkGoal() {
+
+
+    // RÖTT MÅL
+    if (
+        ball.x <
+        -ball.radius &&
+
+        ball.y >
+        goalTop &&
+
+        ball.y <
+        goalBottom
+    ) {
+
+        score2++;
+
+        goal(2);
+
+    }
+
+
+    // BLÅTT MÅL
+    if (
+        ball.x >
+        W + ball.radius &&
+
+        ball.y >
+        goalTop &&
+
+        ball.y <
+        goalBottom
+    ) {
+
+        score1++;
+
+        goal(1);
+
+    }
+
+}
+
+
+// ============================================
+// EFTER MÅL
+// ============================================
+
+function goal(player) {
+
+    if (player === 1) {
+
+        message =
+            "🔵 BLÅTT MÅL!";
+
+    } else {
+
+        message =
+            "🔴 RÖTT MÅL!";
+
+    }
+
+
+    messageTimer = 90;
+
+    resetPositions();
+
+}
+
+
+// ============================================
+// RESET
+// ============================================
+
+function resetPositions() {
+
+
+    player1.x = 200;
+    player1.y = H / 2;
+
+    player1.vx = 0;
+    player1.vy = 0;
+
+    player1.lastDirX = 1;
+    player1.lastDirY = 0;
+
+
+    player2.x =
+        W - 200;
+
+    player2.y =
+        H / 2;
+
+    player2.vx = 0;
+    player2.vy = 0;
+
+    player2.lastDirX = -1;
+    player2.lastDirY = 0;
+
+
+    ball.x =
+        W / 2;
+
+    ball.y =
+        H / 2;
+
+    ball.vx = 0;
+    ball.vy = 0;
+
+}
+
+
+// ============================================
+// RITA PLANEN
+// ============================================
+
+function drawField() {
+
+    ctx.clearRect(
+        0,
+        0,
+        W,
+        H
+    );
+
+
+    // Gräs
+    ctx.fillStyle =
+        "#557a46";
+
+    ctx.fillRect(
+        0,
+        0,
+        W,
+        H
+    );
+
+
+    // Linjer
+    ctx.strokeStyle =
+        "rgba(255,255,255,0.7)";
+
+    ctx.lineWidth = 3;
+
+
+    // Mittlinje
+    ctx.beginPath();
+
+    ctx.moveTo(
+        W / 2,
+        0
+    );
+
+    ctx.lineTo(
+        W / 2,
+        H
+    );
+
+    ctx.stroke();
+
+
+    // Mittcirkel
+    ctx.beginPath();
+
+    ctx.arc(
+        W / 2,
+        H / 2,
+        65,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.stroke();
+
+
+    // Mittpunkt
+    ctx.fillStyle =
+        "white";
+
+    ctx.beginPath();
+
+    ctx.arc(
+        W / 2,
+        H / 2,
+        4,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    // MÅL
+    ctx.strokeStyle =
+        "white";
+
+    ctx.lineWidth = 5;
+
+
+    // Vänster
+    ctx.strokeRect(
+        -8,
+        goalTop,
+        35,
+        goalHeight
+    );
+
+
+    // Höger
+    ctx.strokeRect(
+        W - 27,
+        goalTop,
+        35,
+        goalHeight
+    );
+
+
+    // Straffområden
+    ctx.lineWidth = 2;
+
+
+    ctx.strokeRect(
+        0,
+        H / 2 - 90,
+        100,
+        180
+    );
+
+
+    ctx.strokeRect(
+        W - 100,
+        H / 2 - 90,
+        100,
+        180
+    );
+
+}
+
+
+// ============================================
+// RITA SPELARE
+// ============================================
+
+function drawPlayer(p) {
+
+
+    // Skugga
+    ctx.fillStyle =
+        "rgba(0,0,0,0.25)";
+
+
+    ctx.beginPath();
+
+    ctx.ellipse(
+        p.x,
+        p.y + p.radius + 4,
+        p.radius,
+        6,
+        0,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    // Spelare
+    ctx.fillStyle =
+        p.color;
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        p.x,
+        p.y,
+        p.radius,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    // Vit kant
+    ctx.strokeStyle =
+        "white";
+
+    ctx.lineWidth = 2;
+
+    ctx.stroke();
+
+
+    // Rörelseriktning
+    const speed =
+        Math.hypot(
+            p.vx,
+            p.vy
+        );
+
+
+    if (speed > 0.5) {
+
+        ctx.strokeStyle =
+            "rgba(255,255,255,0.8)";
+
+        ctx.lineWidth = 3;
+
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            p.x,
+            p.y
+        );
+
+
+        ctx.lineTo(
+            p.x +
+            (p.vx / speed) * 12,
+
+            p.y +
+            (p.vy / speed) * 12
+        );
+
+
+        ctx.stroke();
+
+    }
+
+}
+
+
+// ============================================
+// RITA BOLL
+// ============================================
+
+function drawBall() {
+
+
+    // Skugga
+    ctx.fillStyle =
+        "rgba(0,0,0,0.25)";
+
+
+    ctx.beginPath();
+
+    ctx.ellipse(
+        ball.x,
+        ball.y + ball.radius + 4,
+        ball.radius,
+        5,
+        0,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    // Boll
+    ctx.fillStyle =
+        "white";
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        ball.x,
+        ball.y,
+        ball.radius,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    ctx.strokeStyle =
+        "#222";
+
+    ctx.lineWidth = 2;
+
+    ctx.stroke();
+
+}
+
+
+// ============================================
+// SCORE
+// ============================================
+
+function drawScore() {
+
+    ctx.font =
+        "bold 32px Arial";
+
+    ctx.textAlign =
+        "center";
+
+    ctx.fillStyle =
+        "white";
+
+
+    ctx.fillText(
+        score1 +
+        "  -  " +
+        score2,
+
+        W / 2,
+        40
+    );
+
+}
+
+
+// ============================================
+// MÅLMEDDELANDE
+// ============================================
+
+function drawMessage() {
+
+    if (
+        messageTimer <= 0
+    ) {
+        return;
+    }
+
+
+    ctx.font =
+        "bold 42px Arial";
+
+    ctx.textAlign =
+        "center";
+
+    ctx.fillStyle =
+        "white";
+
+
+    ctx.fillText(
+        message,
+        W / 2,
+        H / 2 - 100
+    );
+
+
+    messageTimer--;
+
+}
+
+
+// ============================================
+// UPDATE
+// ============================================
+
+function update() {
+
+    updatePlayer(
+        player1
+    );
+
+    updatePlayer(
+        player2
+    );
+
+
+    resolvePlayerCollision(
+        player1,
+        player2
+    );
+
+
+    collideBallWithPlayer(
+        player1
+    );
+
+    collideBallWithPlayer(
+        player2
+    );
+
+
+    updateBall();
+
+    checkGoal();
+
+}
+
+
+// ============================================
+// DRAW
+// ============================================
+
+function draw() {
+
+    drawField();
+
+    drawPlayer(
+        player1
+    );
+
+    drawPlayer(
+        player2
+    );
+
+    drawBall();
+
+    drawScore();
+
+    drawMessage();
+
+}
+
+
+// ============================================
+// GAME LOOP
+// ============================================
+
+function gameLoop() {
+
+    update();
+
+    draw();
+
+    requestAnimationFrame(
+        gameLoop
+    );
+
+}
+
+
+// ============================================
+// START
+// ============================================
+
+resetPositions();
+
+gameLoop();
+
+</script>
+
 </body>
 </html>
