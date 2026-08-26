@@ -13,14 +13,14 @@
 
 body {
     margin: 0;
-    height: 100vh;
+    min-height: 100vh;
     background: #222;
     display: flex;
     justify-content: center;
     align-items: center;
     font-family: Arial, sans-serif;
     color: white;
-    overflow: hidden;
+    overflow: auto;
 }
 
 #game {
@@ -29,10 +29,14 @@ body {
 
 canvas {
     display: block;
-    width: 800px;
-    height: 400px;
-    max-width: 95vw;
-    max-height: 80vh;
+
+    /* STÖRRE PLAN */
+    width: 1200px;
+    height: 600px;
+
+    max-width: 96vw;
+    max-height: 82vh;
+
     background: #557a46;
     border: 5px solid white;
     border-radius: 6px;
@@ -40,8 +44,9 @@ canvas {
 
 .info {
     margin-top: 10px;
-    font-size: 14px;
+    font-size: 15px;
     color: #ddd;
+    line-height: 1.6;
 }
 </style>
 </head>
@@ -50,11 +55,14 @@ canvas {
 
 <div id="game">
 
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <canvas id="gameCanvas" width="1200" height="600"></canvas>
 
     <div class="info">
-        🔵 WASD + SPACE &nbsp;&nbsp; | &nbsp;&nbsp;
-        🔴 Piltangenter + SPACE
+        🔵 WASD = Spelare 1 &nbsp; | &nbsp;
+        🔴 Piltangenter = Spelare 2
+        <br>
+        🟡 SHIFT = Lätt pass / Ta emot &nbsp; | &nbsp;
+        ⚡ SPACE = Skjut
     </div>
 
 </div>
@@ -68,11 +76,12 @@ const W = canvas.width;
 const H = canvas.height;
 
 const keys = Object.create(null);
+const previousKeys = Object.create(null);
 
 
-// ============================================
-// TANGENTER
-// ============================================
+/* ============================================
+   TANGENTER
+============================================ */
 
 window.addEventListener("keydown", function(e) {
 
@@ -82,6 +91,7 @@ window.addEventListener("keydown", function(e) {
 
     if (
         key === " " ||
+        key === "shift" ||
         key === "arrowup" ||
         key === "arrowdown" ||
         key === "arrowleft" ||
@@ -100,22 +110,27 @@ window.addEventListener("keyup", function(e) {
 });
 
 
-// ============================================
-// SPELARE 1
-// ============================================
+function pressed(key) {
+    return keys[key] && !previousKeys[key];
+}
+
+
+/* ============================================
+   SPELARE 1
+============================================ */
 
 const player1 = {
 
-    x: 200,
+    x: 300,
     y: H / 2,
 
     vx: 0,
     vy: 0,
 
-    radius: 18,
+    radius: 22,
 
-    speed: 0.65,
-    maxSpeed: 5.5,
+    speed: 0.7,
+    maxSpeed: 6,
 
     color: "#2196f3",
 
@@ -124,30 +139,30 @@ const player1 = {
     left: "a",
     right: "d",
 
-    shoot: " ",
-
     lastDirX: 1,
-    lastDirY: 0
+    lastDirY: 0,
+
+    shiftUsed: false
 
 };
 
 
-// ============================================
-// SPELARE 2
-// ============================================
+/* ============================================
+   SPELARE 2
+============================================ */
 
 const player2 = {
 
-    x: W - 200,
+    x: W - 300,
     y: H / 2,
 
     vx: 0,
     vy: 0,
 
-    radius: 18,
+    radius: 22,
 
-    speed: 0.65,
-    maxSpeed: 5.5,
+    speed: 0.7,
+    maxSpeed: 6,
 
     color: "#f44336",
 
@@ -156,17 +171,17 @@ const player2 = {
     left: "arrowleft",
     right: "arrowright",
 
-    shoot: " ",
-
     lastDirX: -1,
-    lastDirY: 0
+    lastDirY: 0,
+
+    shiftUsed: false
 
 };
 
 
-// ============================================
-// BOLL
-// ============================================
+/* ============================================
+   BOLL
+============================================ */
 
 const ball = {
 
@@ -176,20 +191,20 @@ const ball = {
     vx: 0,
     vy: 0,
 
-    radius: 11,
+    radius: 13,
 
-    friction: 0.992,
+    friction: 0.994,
 
-    maxSpeed: 14
+    maxSpeed: 16
 
 };
 
 
-// ============================================
-// MÅL
-// ============================================
+/* ============================================
+   MÅL
+============================================ */
 
-const goalHeight = 150;
+const goalHeight = 190;
 
 const goalTop =
     (H - goalHeight) / 2;
@@ -205,9 +220,9 @@ let message = "";
 let messageTimer = 0;
 
 
-// ============================================
-// CLAMP
-// ============================================
+/* ============================================
+   CLAMP
+============================================ */
 
 function clamp(value, min, max) {
 
@@ -219,9 +234,9 @@ function clamp(value, min, max) {
 }
 
 
-// ============================================
-// UPPDATERA SPELARE
-// ============================================
+/* ============================================
+   UPPDATERA SPELARE
+============================================ */
 
 function updatePlayer(p) {
 
@@ -246,7 +261,8 @@ function updatePlayer(p) {
     }
 
 
-    // Diagonal rörelse
+    /* Diagonal rörelse */
+
     if (ax !== 0 && ay !== 0) {
 
         ax *= 0.7071;
@@ -259,12 +275,14 @@ function updatePlayer(p) {
     p.vy += ay;
 
 
-    // Friktion
-    p.vx *= 0.86;
-    p.vy *= 0.86;
+    /* Friktion */
+
+    p.vx *= 0.87;
+    p.vy *= 0.87;
 
 
-    // Maxhastighet
+    /* Maxhastighet */
+
     const speed =
         Math.hypot(
             p.vx,
@@ -289,7 +307,8 @@ function updatePlayer(p) {
     p.y += p.vy;
 
 
-    // Väggar
+    /* Väggar */
+
     p.x = clamp(
         p.x,
         p.radius,
@@ -303,7 +322,8 @@ function updatePlayer(p) {
     );
 
 
-    // Spara senaste riktning
+    /* Spara senaste riktning */
+
     if (
         Math.abs(p.vx) > 0.2 ||
         Math.abs(p.vy) > 0.2
@@ -324,20 +344,150 @@ function updatePlayer(p) {
     }
 
 
-    // SPACE = SKJUT
-    // INGEN COOLDOWN
-    if (keys[p.shoot]) {
+    /*
+       SPACE = ENDAST SKOTT
+    */
+
+    if (keys[" "]) {
 
         shoot(p);
+
+    }
+
+
+    /*
+       SHIFT = LÄTT PASS / TA EMOT
+    */
+
+    if (pressed("shift")) {
+
+        passOrReceive(p);
 
     }
 
 }
 
 
-// ============================================
-// SKJUTA
-// ============================================
+/* ============================================
+   SHIFT
+   LÄTT PASS / TA EMOT
+============================================ */
+
+function passOrReceive(p) {
+
+    const dx =
+        ball.x - p.x;
+
+    const dy =
+        ball.y - p.y;
+
+    const distance =
+        Math.hypot(dx, dy);
+
+
+    /*
+       OM BOLLEN ÄR NÄRA:
+       TA EMOT DEN
+    */
+
+    if (distance <= 45) {
+
+        ball.x =
+            p.x +
+            p.lastDirX *
+            (p.radius + ball.radius + 3);
+
+        ball.y =
+            p.y +
+            p.lastDirY *
+            (p.radius + ball.radius + 3);
+
+        /*
+           Bromsa bollen så den "tas emot"
+        */
+
+        ball.vx =
+            p.vx * 0.35;
+
+        ball.vy =
+            p.vy * 0.35;
+
+        return;
+    }
+
+
+    /*
+       OM BOLLEN ÄR LITE LÄNGRE BORT:
+       LÄTT PASS
+    */
+
+    if (distance <= 75) {
+
+        let dirX =
+            p.lastDirX;
+
+        let dirY =
+            p.lastDirY;
+
+
+        /*
+           Om bollen finns framför spelaren
+           används bollens riktning.
+        */
+
+        if (distance > 0) {
+
+            const dot =
+                dx * p.lastDirX +
+                dy * p.lastDirY;
+
+            if (dot > 0) {
+
+                dirX =
+                    dx / distance;
+
+                dirY =
+                    dy / distance;
+
+            }
+
+        }
+
+
+        ball.x =
+            p.x +
+            dirX *
+            (p.radius + ball.radius + 3);
+
+        ball.y =
+            p.y +
+            dirY *
+            (p.radius + ball.radius + 3);
+
+
+        /*
+           LÄTT PASS
+        */
+
+        ball.vx =
+            dirX * 5 +
+            p.vx * 0.7;
+
+        ball.vy =
+            dirY * 5 +
+            p.vy * 0.7;
+
+
+        limitBallSpeed();
+
+    }
+
+}
+
+
+/* ============================================
+   SKJUTA
+============================================ */
 
 function shoot(p) {
 
@@ -351,8 +501,11 @@ function shoot(p) {
         Math.hypot(dx, dy);
 
 
-    // Bollen måste vara nära
-    if (distance > 65) {
+    /*
+       Bollen måste vara nära
+    */
+
+    if (distance > 70) {
         return;
     }
 
@@ -364,7 +517,10 @@ function shoot(p) {
         p.lastDirY;
 
 
-    // Sikta mot bollen
+    /*
+       Sikta mot bollen
+    */
+
     if (distance > 0) {
 
         dirX =
@@ -376,26 +532,32 @@ function shoot(p) {
     }
 
 
-    // Flytta bollen framför spelaren
+    /*
+       Flytta bollen framför spelaren
+    */
+
     ball.x =
         p.x +
         dirX *
-        (p.radius + ball.radius + 2);
+        (p.radius + ball.radius + 3);
 
     ball.y =
         p.y +
         dirY *
-        (p.radius + ball.radius + 2);
+        (p.radius + ball.radius + 3);
 
 
-    // SKOTTKRAFT
+    /*
+       STARKT SKOTT
+    */
+
     ball.vx =
-        dirX * 12 +
-        p.vx * 0.5;
+        dirX * 15 +
+        p.vx * 0.6;
 
     ball.vy =
-        dirY * 12 +
-        p.vy * 0.5;
+        dirY * 15 +
+        p.vy * 0.6;
 
 
     limitBallSpeed();
@@ -403,9 +565,9 @@ function shoot(p) {
 }
 
 
-// ============================================
-// SPELARE MOT SPELARE
-// ============================================
+/* ============================================
+   SPELARE MOT SPELARE
+============================================ */
 
 function resolvePlayerCollision(a, b) {
 
@@ -456,7 +618,6 @@ function resolvePlayerCollision(a, b) {
         ny * overlap / 2;
 
 
-    // Enkel studs
     const relativeVelocity =
         (b.vx - a.vx) * nx +
         (b.vy - a.vy) * ny;
@@ -486,9 +647,9 @@ function resolvePlayerCollision(a, b) {
 }
 
 
-// ============================================
-// BOLL MOT SPELARE
-// ============================================
+/* ============================================
+   BOLL MOT SPELARE
+============================================ */
 
 function collideBallWithPlayer(p) {
 
@@ -498,10 +659,8 @@ function collideBallWithPlayer(p) {
     const dy =
         ball.y - p.y;
 
-
     const distance =
         Math.hypot(dx, dy);
-
 
     const minDistance =
         ball.radius +
@@ -527,7 +686,6 @@ function collideBallWithPlayer(p) {
         minDistance - distance;
 
 
-    // Flytta bollen ut
     ball.x +=
         nx * overlap;
 
@@ -535,7 +693,6 @@ function collideBallWithPlayer(p) {
         ny * overlap;
 
 
-    // Relativ hastighet
     let rvx =
         ball.vx - p.vx;
 
@@ -570,7 +727,10 @@ function collideBallWithPlayer(p) {
         rvy + p.vy;
 
 
-    // Extra kraft från spelaren
+    /*
+       Extra kraft från spelaren
+    */
+
     const playerSpeed =
         Math.hypot(
             p.vx,
@@ -598,9 +758,9 @@ function collideBallWithPlayer(p) {
 }
 
 
-// ============================================
-// BOLL
-// ============================================
+/* ============================================
+   BOLL
+============================================ */
 
 function updateBall() {
 
@@ -608,12 +768,18 @@ function updateBall() {
     ball.y += ball.vy;
 
 
-    // Friktion
+    /*
+       Friktion
+    */
+
     ball.vx *= ball.friction;
     ball.vy *= ball.friction;
 
 
-    // ÖVRE VÄGG
+    /*
+       ÖVRE VÄGG
+    */
+
     if (
         ball.y -
         ball.radius <= 0
@@ -629,7 +795,10 @@ function updateBall() {
     }
 
 
-    // NEDRE VÄGG
+    /*
+       NEDRE VÄGG
+    */
+
     if (
         ball.y +
         ball.radius >= H
@@ -645,7 +814,10 @@ function updateBall() {
     }
 
 
-    // VÄNSTER VÄGG
+    /*
+       VÄNSTER VÄGG
+    */
+
     if (
         ball.x -
         ball.radius <= 0
@@ -668,7 +840,10 @@ function updateBall() {
     }
 
 
-    // HÖGER VÄGG
+    /*
+       HÖGER VÄGG
+    */
+
     if (
         ball.x +
         ball.radius >= W
@@ -696,9 +871,9 @@ function updateBall() {
 }
 
 
-// ============================================
-// MAX BOLLHASTIGHET
-// ============================================
+/* ============================================
+   MAX BOLLHASTIGHET
+============================================ */
 
 function limitBallSpeed() {
 
@@ -727,14 +902,16 @@ function limitBallSpeed() {
 }
 
 
-// ============================================
-// MÅL
-// ============================================
+/* ============================================
+   MÅL
+============================================ */
 
 function checkGoal() {
 
+    /*
+       RÖTT MÅL
+    */
 
-    // RÖTT MÅL
     if (
         ball.x <
         -ball.radius &&
@@ -753,7 +930,10 @@ function checkGoal() {
     }
 
 
-    // BLÅTT MÅL
+    /*
+       BLÅTT MÅL
+    */
+
     if (
         ball.x >
         W + ball.radius &&
@@ -774,9 +954,9 @@ function checkGoal() {
 }
 
 
-// ============================================
-// EFTER MÅL
-// ============================================
+/* ============================================
+   EFTER MÅL
+============================================ */
 
 function goal(player) {
 
@@ -800,14 +980,13 @@ function goal(player) {
 }
 
 
-// ============================================
-// RESET
-// ============================================
+/* ============================================
+   RESET
+============================================ */
 
 function resetPositions() {
 
-
-    player1.x = 200;
+    player1.x = 300;
     player1.y = H / 2;
 
     player1.vx = 0;
@@ -818,7 +997,7 @@ function resetPositions() {
 
 
     player2.x =
-        W - 200;
+        W - 300;
 
     player2.y =
         H / 2;
@@ -842,9 +1021,9 @@ function resetPositions() {
 }
 
 
-// ============================================
-// RITA PLANEN
-// ============================================
+/* ============================================
+   RITA PLANEN
+============================================ */
 
 function drawField() {
 
@@ -856,7 +1035,10 @@ function drawField() {
     );
 
 
-    // Gräs
+    /*
+       GRÄS
+    */
+
     ctx.fillStyle =
         "#557a46";
 
@@ -868,14 +1050,20 @@ function drawField() {
     );
 
 
-    // Linjer
+    /*
+       Linjer
+    */
+
     ctx.strokeStyle =
         "rgba(255,255,255,0.7)";
 
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
 
 
-    // Mittlinje
+    /*
+       Mittlinje
+    */
+
     ctx.beginPath();
 
     ctx.moveTo(
@@ -891,13 +1079,16 @@ function drawField() {
     ctx.stroke();
 
 
-    // Mittcirkel
+    /*
+       Mittcirkel
+    */
+
     ctx.beginPath();
 
     ctx.arc(
         W / 2,
         H / 2,
-        65,
+        90,
         0,
         Math.PI * 2
     );
@@ -905,7 +1096,10 @@ function drawField() {
     ctx.stroke();
 
 
-    // Mittpunkt
+    /*
+       Mittpunkt
+    */
+
     ctx.fillStyle =
         "white";
 
@@ -914,7 +1108,7 @@ function drawField() {
     ctx.arc(
         W / 2,
         H / 2,
-        4,
+        5,
         0,
         Math.PI * 2
     );
@@ -922,72 +1116,85 @@ function drawField() {
     ctx.fill();
 
 
-    // MÅL
+    /*
+       MÅL
+    */
+
     ctx.strokeStyle =
         "white";
 
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 6;
 
 
-    // Vänster
+    /*
+       Vänster mål
+    */
+
     ctx.strokeRect(
-        -8,
+        -10,
         goalTop,
-        35,
+        45,
         goalHeight
     );
 
 
-    // Höger
+    /*
+       Höger mål
+    */
+
     ctx.strokeRect(
-        W - 27,
+        W - 35,
         goalTop,
-        35,
+        45,
         goalHeight
     );
 
 
-    // Straffområden
-    ctx.lineWidth = 2;
+    /*
+       Straffområden
+    */
+
+    ctx.lineWidth = 3;
 
 
     ctx.strokeRect(
         0,
-        H / 2 - 90,
-        100,
-        180
+        H / 2 - 120,
+        140,
+        240
     );
 
 
     ctx.strokeRect(
-        W - 100,
-        H / 2 - 90,
-        100,
-        180
+        W - 140,
+        H / 2 - 120,
+        140,
+        240
     );
 
 }
 
 
-// ============================================
-// RITA SPELARE
-// ============================================
+/* ============================================
+   RITA SPELARE
+============================================ */
 
 function drawPlayer(p) {
 
+    /*
+       Skugga
+    */
 
-    // Skugga
     ctx.fillStyle =
         "rgba(0,0,0,0.25)";
-
 
     ctx.beginPath();
 
     ctx.ellipse(
         p.x,
-        p.y + p.radius + 4,
+        p.y + p.radius + 5,
         p.radius,
-        6,
+        7,
         0,
         0,
         Math.PI * 2
@@ -996,10 +1203,12 @@ function drawPlayer(p) {
     ctx.fill();
 
 
-    // Spelare
+    /*
+       Spelare
+    */
+
     ctx.fillStyle =
         p.color;
-
 
     ctx.beginPath();
 
@@ -1014,16 +1223,22 @@ function drawPlayer(p) {
     ctx.fill();
 
 
-    // Vit kant
+    /*
+       Vit kant
+    */
+
     ctx.strokeStyle =
         "white";
 
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
 
     ctx.stroke();
 
 
-    // Rörelseriktning
+    /*
+       Rörelseriktning
+    */
+
     const speed =
         Math.hypot(
             p.vx,
@@ -1038,7 +1253,6 @@ function drawPlayer(p) {
 
         ctx.lineWidth = 3;
 
-
         ctx.beginPath();
 
         ctx.moveTo(
@@ -1046,15 +1260,13 @@ function drawPlayer(p) {
             p.y
         );
 
-
         ctx.lineTo(
             p.x +
-            (p.vx / speed) * 12,
+            (p.vx / speed) * 16,
 
             p.y +
-            (p.vy / speed) * 12
+            (p.vy / speed) * 16
         );
-
 
         ctx.stroke();
 
@@ -1063,25 +1275,26 @@ function drawPlayer(p) {
 }
 
 
-// ============================================
-// RITA BOLL
-// ============================================
+/* ============================================
+   RITA BOLL
+============================================ */
 
 function drawBall() {
 
+    /*
+       Skugga
+    */
 
-    // Skugga
     ctx.fillStyle =
         "rgba(0,0,0,0.25)";
-
 
     ctx.beginPath();
 
     ctx.ellipse(
         ball.x,
-        ball.y + ball.radius + 4,
+        ball.y + ball.radius + 5,
         ball.radius,
-        5,
+        6,
         0,
         0,
         Math.PI * 2
@@ -1090,10 +1303,12 @@ function drawBall() {
     ctx.fill();
 
 
-    // Boll
+    /*
+       Boll
+    */
+
     ctx.fillStyle =
         "white";
-
 
     ctx.beginPath();
 
@@ -1118,14 +1333,14 @@ function drawBall() {
 }
 
 
-// ============================================
-// SCORE
-// ============================================
+/* ============================================
+   SCORE
+============================================ */
 
 function drawScore() {
 
     ctx.font =
-        "bold 32px Arial";
+        "bold 38px Arial";
 
     ctx.textAlign =
         "center";
@@ -1133,22 +1348,21 @@ function drawScore() {
     ctx.fillStyle =
         "white";
 
-
     ctx.fillText(
         score1 +
         "  -  " +
         score2,
 
         W / 2,
-        40
+        50
     );
 
 }
 
 
-// ============================================
-// MÅLMEDDELANDE
-// ============================================
+/* ============================================
+   MÅLMEDDELANDE
+============================================ */
 
 function drawMessage() {
 
@@ -1160,7 +1374,7 @@ function drawMessage() {
 
 
     ctx.font =
-        "bold 42px Arial";
+        "bold 48px Arial";
 
     ctx.textAlign =
         "center";
@@ -1168,11 +1382,10 @@ function drawMessage() {
     ctx.fillStyle =
         "white";
 
-
     ctx.fillText(
         message,
         W / 2,
-        H / 2 - 100
+        H / 2 - 130
     );
 
 
@@ -1181,9 +1394,9 @@ function drawMessage() {
 }
 
 
-// ============================================
-// UPDATE
-// ============================================
+/* ============================================
+   UPDATE
+============================================ */
 
 function update() {
 
@@ -1215,12 +1428,22 @@ function update() {
 
     checkGoal();
 
+
+    /*
+       Spara föregående tangenter
+       för SHIFT-tryck
+    */
+
+    for (const key in keys) {
+        previousKeys[key] = keys[key];
+    }
+
 }
 
 
-// ============================================
-// DRAW
-// ============================================
+/* ============================================
+   DRAW
+============================================ */
 
 function draw() {
 
@@ -1243,9 +1466,9 @@ function draw() {
 }
 
 
-// ============================================
-// GAME LOOP
-// ============================================
+/* ============================================
+   GAME LOOP
+============================================ */
 
 function gameLoop() {
 
@@ -1260,9 +1483,9 @@ function gameLoop() {
 }
 
 
-// ============================================
-// START
-// ============================================
+/* ============================================
+   START
+============================================ */
 
 resetPositions();
 
